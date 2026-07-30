@@ -5,18 +5,18 @@ import (
 	"fmt"
 )
 
-// ErrNotImplemented is returned by archive operations until the ROSA v1 format is specified.
 var ErrNotImplemented = errors.New("rosa archive operation not implemented")
 
-// EntryType identifies the kind of filesystem object stored in an archive.
 type EntryType uint8
 
+// membedakan directory dengan file biasa, bisa konsider symbolic link, tapi struktur filesystem symbolic jarang
+// dipakai, sehingga untuk sementara entry hanya dua berikut ini
 const (
 	EntryTypeFile EntryType = iota + 1
 	EntryTypeDirectory
 )
 
-// Entry describes one archive member after parsing metadata.
+// entry sementara
 type Entry struct {
 	Path   string
 	Type   EntryType
@@ -25,7 +25,7 @@ type Entry struct {
 	Offset uint64
 }
 
-// InfoSummary contains high-level archive metadata.
+// metadata sementara
 type InfoSummary struct {
 	EntryCount uint64
 }

@@ -7,7 +7,7 @@ type Reader struct {
 	entries []Entry
 }
 
-// Open parses and validates a ROSA archive from disk.
+// cmd untuk membuka arsip ROSA dari disk
 //
 // TODO: implement header, metadata, payload range, footer, and checksum validation.
 func Open(archivePath string) (*Reader, error) {
@@ -17,8 +17,6 @@ func Open(archivePath string) (*Reader, error) {
 	return nil, notImplemented("open archive")
 }
 
-// NewReader parses and validates a ROSA archive from an existing random-access reader.
-//
 // TODO: use io.ReaderAt/io.Seeker based parsing once the binary layout is defined.
 func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
 	if r == nil {
@@ -30,7 +28,7 @@ func NewReader(r io.ReaderAt, size int64) (*Reader, error) {
 	return nil, notImplemented("open archive reader")
 }
 
-// Entries returns the parsed archive entries in archive order.
+// TODO: implement entry type validation and payload reading.
 func (r *Reader) Entries() []Entry {
 	if r == nil || len(r.entries) == 0 {
 		return nil

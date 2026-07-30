@@ -8,14 +8,10 @@ import (
 )
 
 const (
-	MaxEntries    = 1_000_000
-	MaxPathLength = 4096
+	MaxEntries    = 1_000_000 // maximum entries di archive
+	MaxPathLength = 4096      // maximum length dari path di archive
 )
 
-// NormalizeArchivePath converts a candidate path to the canonical slash-separated
-// archive representation. It is intentionally strict because archive paths are
-// untrusted during extraction.
-//
 // TODO: extend this when traversal code defines exact source-root behavior.
 func NormalizeArchivePath(p string) (string, error) {
 	if p == "" {

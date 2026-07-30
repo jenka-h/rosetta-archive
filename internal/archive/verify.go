@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// Verify validates archive structure and CRC32 checksums.
+// cmd untuk memverifikasi struktur arsip ROSA dan checksum CRC32
 //
 // TODO: reuse Open and perform payload checksum verification after parsing exists.
 func Verify(archivePath string) error {
@@ -15,7 +15,7 @@ func Verify(archivePath string) error {
 	return notImplemented("verify archive")
 }
 
-// Info returns a high-level archive summary.
+// cmd untuk mendapatkan ringkasan informasi arsip ROSA
 //
 // TODO: derive this from the shared Reader once parsing exists.
 func Info(archivePath string) (InfoSummary, error) {
@@ -25,7 +25,7 @@ func Info(archivePath string) (InfoSummary, error) {
 	return InfoSummary{}, notImplemented("archive info")
 }
 
-// Inspect writes human-readable structural details about an archive.
+// cmd untuk inspeksi detail struktur arsip ROSA
 //
 // TODO: show header, metadata boundaries, payload ranges, footer, and checksum status.
 func Inspect(archivePath string, out io.Writer) error {

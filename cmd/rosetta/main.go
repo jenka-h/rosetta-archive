@@ -8,6 +8,7 @@ import (
 	"rosetta-archive/internal/archive"
 )
 
+// entry point untuk cli
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "rosetta: %v\n", err)
@@ -15,6 +16,7 @@ func main() {
 	}
 }
 
+// routing command cli
 func run(args []string) error {
 	if len(args) == 0 {
 		printUsage(os.Stderr)
@@ -73,6 +75,7 @@ func run(args []string) error {
 	}
 }
 
+// help menu
 func printUsage(out *os.File) {
 	fmt.Fprintln(out, "usage: rosetta <command> [arguments]")
 	fmt.Fprintln(out)

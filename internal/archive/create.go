@@ -1,6 +1,6 @@
 package archive
 
-// Create writes a ROSA archive at archivePath from the provided source paths.
+// cmd untuk membuat arsip ROSA dari path sumber yang diberikan
 //
 // TODO: implement deterministic traversal, metadata generation, payload writing,
 // checksum calculation, and atomic archive replacement after the binary format is defined.

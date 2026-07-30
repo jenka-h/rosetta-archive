@@ -1,6 +1,6 @@
 package archive
 
-// List returns archive entries using the shared parser and validation path.
+// cmd untuk menampilkan daftar entri dalam arsip ROSA
 //
 // TODO: call Open and return parsed entries once archive parsing exists.
 func List(archivePath string) ([]Entry, error) {

@@ -1,6 +1,6 @@
 package archive
 
-// Extract safely extracts a ROSA archive into destination.
+// cmd untuk mengekstrak arsip ROSA ke direktori tujuan
 //
 // TODO: validate archive paths, prevent traversal, write temporary files first,
 // verify size and CRC32 before rename, and reject unsupported entry types.
