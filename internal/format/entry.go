@@ -3,6 +3,8 @@ package format
 import (
 	"fmt"
 	"io"
+
+	core "rosetta-archive/internal"
 )
 
 // EntryHeader is the fixed header that begins every file record.
@@ -28,7 +30,7 @@ type Entry struct {
 
 func EncodeEntryHeader(w io.Writer, h EntryHeader) error {
 	if w == nil {
-		return ErrNilWriter
+		return core.ErrNilWriter
 	}
 	if err := ValidateEntryHeader(h); err != nil {
 		return fmt.Errorf("validate entry header: %w", err)
@@ -51,7 +53,7 @@ func EncodeEntryHeader(w io.Writer, h EntryHeader) error {
 
 func DecodeEntryHeader(r io.Reader) (EntryHeader, error) {
 	if r == nil {
-		return EntryHeader{}, ErrNilReader
+		return EntryHeader{}, core.ErrNilReader
 	}
 	buf := make([]byte, EntryHeaderSize)
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -76,14 +78,14 @@ func DecodeEntryHeader(r io.Reader) (EntryHeader, error) {
 
 func EncodeEntry(w io.Writer, e Entry) error {
 	if w == nil {
-		return ErrNilWriter
+		return core.ErrNilWriter
 	}
 	pathBytes := []byte(e.Path)
 	if err := validatePathBytes(pathBytes); err != nil {
 		return fmt.Errorf("validate entry path: %w", err)
 	}
 	if len(e.ExtraMetadata) > int(MaxExtraMetadataLength) {
-		return ErrExtraMetadataTooLong
+		return core.ErrExtraMetadataTooLong
 	}
 	e.Header.PathLength = uint32(len(pathBytes))
 	e.Header.ExtraMetadataLength = uint32(len(e.ExtraMetadata))
@@ -103,7 +105,7 @@ func EncodeEntry(w io.Writer, e Entry) error {
 
 func DecodeEntry(r io.Reader) (Entry, error) {
 	if r == nil {
-		return Entry{}, ErrNilReader
+		return Entry{}, core.ErrNilReader
 	}
 	h, err := DecodeEntryHeader(r)
 	if err != nil {
@@ -131,21 +133,21 @@ func ValidateEntryHeader(h EntryHeader) error {
 		return err
 	}
 	if h.PathLength == 0 || h.PathLength > MaxPathLength {
-		return ErrPathTooLong
+		return core.ErrPathTooLong
 	}
 	if h.ExtraMetadataLength > MaxExtraMetadataLength {
-		return ErrExtraMetadataTooLong
+		return core.ErrExtraMetadataTooLong
 	}
 	if h.Reserved != 0 {
-		return ErrReservedNonZero
+		return core.ErrReservedNonZero
 	}
 	if h.EntryType == EntryTypeDirectory {
 		if h.CompressionMethod != CompressionStore || h.UncompressedSize != 0 || h.CompressedSize != 0 || h.DataCRC32 != 0 {
-			return ErrInvalidEntrySizes
+			return core.ErrInvalidEntrySizes
 		}
 	}
 	if h.CompressionMethod == CompressionStore && h.EntryType == EntryTypeFile && h.CompressedSize != h.UncompressedSize {
-		return ErrInvalidEntrySizes
+		return core.ErrInvalidEntrySizes
 	}
 	return nil
 }

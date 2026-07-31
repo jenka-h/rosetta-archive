@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"rosetta-archive/internal"
+	core "rosetta-archive/internal"
 )
 
 // ArchiveHeader is the fixed archive header.
@@ -36,7 +36,7 @@ func NewArchiveHeader() ArchiveHeader {
 
 func EncodeHeader(w io.Writer, h ArchiveHeader) error {
 	if w == nil {
-		return ErrNilWriter
+		return core.ErrNilWriter
 	}
 	if h.MajorVersion == 0 {
 		h.MajorVersion = FormatMajor
@@ -47,7 +47,7 @@ func EncodeHeader(w io.Writer, h ArchiveHeader) error {
 		return fmt.Errorf("validate archive header: %w", err)
 	}
 	buf := marshalHeader(h)
-	ByteOrder.PutUint32(buf[12:16], internal.CRC32(buf))
+	ByteOrder.PutUint32(buf[12:16], core.CRC32(buf))
 	if _, err := w.Write(buf); err != nil {
 		return fmt.Errorf("write archive header: %w", err)
 	}
@@ -56,20 +56,20 @@ func EncodeHeader(w io.Writer, h ArchiveHeader) error {
 
 func DecodeHeader(r io.Reader) (ArchiveHeader, error) {
 	if r == nil {
-		return ArchiveHeader{}, ErrNilReader
+		return ArchiveHeader{}, core.ErrNilReader
 	}
 	buf := make([]byte, ArchiveHeaderSize)
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return ArchiveHeader{}, fmt.Errorf("read archive header: %w", err)
 	}
 	if !hasMagic(buf, ArchiveMagic) {
-		return ArchiveHeader{}, ErrInvalidMagic
+		return ArchiveHeader{}, core.ErrInvalidMagic
 	}
 	h := unmarshalHeader(buf)
 	storedCRC := h.HeaderCRC32
 	ByteOrder.PutUint32(buf[12:16], 0)
-	if internal.CRC32(buf) != storedCRC {
-		return ArchiveHeader{}, ErrInvalidHeaderCRC32
+	if core.CRC32(buf) != storedCRC {
+		return ArchiveHeader{}, core.ErrInvalidHeaderCRC32
 	}
 	if err := ValidateHeader(h, true); err != nil {
 		return ArchiveHeader{}, fmt.Errorf("validate archive header: %w", err)
@@ -82,29 +82,10 @@ func ValidateHeader(h ArchiveHeader, verifyCRCField bool) error {
 		return err
 	}
 	if h.HeaderSize != ArchiveHeaderSize {
-		return ErrInvalidSize
+		return core.ErrInvalidSize
 	}
 	if !verifyCRCField && h.HeaderCRC32 != 0 {
-		return ErrInvalidHeaderCRC32
+		return core.ErrInvalidHeaderCRC32
 	}
 	return nil
-}
-
-func marshalHeader(h ArchiveHeader) []byte {
-	buf := make([]byte, ArchiveHeaderSize)
-	putMagic(buf[0:4], ArchiveMagic)
-	ByteOrder.PutUint16(buf[4:6], h.MajorVersion)
-	ByteOrder.PutUint16(buf[6:8], h.MinorVersion)
-	ByteOrder.PutUint32(buf[8:12], h.HeaderSize)
-	ByteOrder.PutUint32(buf[12:16], h.HeaderCRC32)
-	return buf
-}
-
-func unmarshalHeader(buf []byte) ArchiveHeader {
-	return ArchiveHeader{
-		MajorVersion: ByteOrder.Uint16(buf[4:6]),
-		MinorVersion: ByteOrder.Uint16(buf[6:8]),
-		HeaderSize:   ByteOrder.Uint32(buf[8:12]),
-		HeaderCRC32:  ByteOrder.Uint32(buf[12:16]),
-	}
 }

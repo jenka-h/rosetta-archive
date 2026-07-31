@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"strings"
 	"unicode/utf8"
+
+	core "rosetta-archive/internal"
 )
 
 const (
@@ -46,7 +48,7 @@ func validateEntryType(t EntryType) error {
 	case EntryTypeFile, EntryTypeDirectory:
 		return nil
 	default:
-		return ErrInvalidEntryType
+		return core.ErrInvalidEntryType
 	}
 }
 
@@ -55,26 +57,26 @@ func validateCompressionMethod(m CompressionMethod) error {
 	case CompressionStore, CompressionROSA1:
 		return nil
 	default:
-		return ErrInvalidCompressionMethod
+		return core.ErrInvalidCompressionMethod
 	}
 }
 
 func validatePathBytes(path []byte) error {
 	if len(path) == 0 {
-		return ErrInvalidPath
+		return core.ErrInvalidPath
 	}
 	if uint32(len(path)) > MaxPathLength {
-		return ErrPathTooLong
+		return core.ErrPathTooLong
 	}
 	if !utf8.Valid(path) {
-		return ErrInvalidPath
+		return core.ErrInvalidPath
 	}
 	p := string(path)
 	if strings.ContainsRune(p, '\x00') || strings.HasPrefix(p, "/") || strings.Contains(p, "\\") {
-		return ErrInvalidPath
+		return core.ErrInvalidPath
 	}
 	if len(p) >= 2 && p[1] == ':' && ((p[0] >= 'A' && p[0] <= 'Z') || (p[0] >= 'a' && p[0] <= 'z')) {
-		return ErrInvalidPath
+		return core.ErrInvalidPath
 	}
 	parts := strings.Split(p, "/")
 	for i, part := range parts {
@@ -82,10 +84,10 @@ func validatePathBytes(path []byte) error {
 			if i == len(parts)-1 {
 				continue
 			}
-			return ErrInvalidPath
+			return core.ErrInvalidPath
 		}
 		if part == "." || part == ".." {
-			return ErrInvalidPath
+			return core.ErrInvalidPath
 		}
 	}
 	return nil

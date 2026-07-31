@@ -1,5 +1,7 @@
 package format
 
+import core "rosetta-archive/internal"
+
 // Compatibility describes how a reader should treat a major/minor version pair.
 type Compatibility struct {
 	SupportedMajor bool
@@ -16,7 +18,7 @@ type Compatibility struct {
 //   - older minor versions are accepted.
 func CheckCompatibility(major uint16, minor uint16) (Compatibility, error) {
 	if major != FormatMajor {
-		return Compatibility{}, ErrUnsupportedVersion
+		return Compatibility{}, core.ErrUnsupportedVersion
 	}
 	return Compatibility{
 		SupportedMajor: true,

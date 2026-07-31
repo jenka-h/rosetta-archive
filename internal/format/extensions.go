@@ -1,6 +1,10 @@
 package format
 
-import "io"
+import (
+	"io"
+
+	core "rosetta-archive/internal"
+)
 
 // FeatureID identifies optional future storage features. Version 1 reserves these
 // hooks but does not implement the feature payload formats.
@@ -23,9 +27,9 @@ type ExtensionRecord struct {
 // TODO: implement only after the extension TLV layout is added to the written spec.
 func EncodeExtensionRecord(w io.Writer, record ExtensionRecord) error {
 	if w == nil {
-		return ErrNilWriter
+		return core.ErrNilWriter
 	}
-	return ErrFeatureNotImplemented
+	return core.ErrFeatureNotImplemented
 }
 
 // DecodeExtensionRecord reads a future extension metadata record.
@@ -33,7 +37,7 @@ func EncodeExtensionRecord(w io.Writer, record ExtensionRecord) error {
 // TODO: enforce length bounds before allocation when the extension layout is defined.
 func DecodeExtensionRecord(r io.Reader) (ExtensionRecord, error) {
 	if r == nil {
-		return ExtensionRecord{}, ErrNilReader
+		return ExtensionRecord{}, core.ErrNilReader
 	}
-	return ExtensionRecord{}, ErrFeatureNotImplemented
+	return ExtensionRecord{}, core.ErrFeatureNotImplemented
 }
