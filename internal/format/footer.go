@@ -7,18 +7,19 @@ import (
 	"rosetta-archive/internal"
 )
 
-// DirectoryHeader is the fixed 16-byte header that begins the central directory.
+// DirectoryHeader begins the central directory.
+// DirectoryCRC32 is calculated over the complete central directory bytes with this
+// field encoded as zero.
 type DirectoryHeader struct {
 	EntryCount     uint32
-	DirectoryFlags uint32
+	DirectoryCRC32 uint32
 	Reserved       uint32
 }
 
-// DirectoryEntry is one fixed 48-byte central-directory record plus its UTF-8 path.
+// DirectoryEntry is one fixed central-directory record plus its UTF-8 path.
 type DirectoryEntry struct {
 	EntryType         EntryType
 	CompressionMethod CompressionMethod
-	EntryFlags        uint16
 	PathLength        uint32
 	FileRecordOffset  uint64
 	DataOffset        uint64
@@ -29,33 +30,27 @@ type DirectoryEntry struct {
 	Path              string
 }
 
-// ArchiveFooter is the fixed 40-byte final archive structure.
+// ArchiveFooter is the fixed final archive structure. It has no magic and no CRC;
+// integrity is covered by HeaderCRC32, DataCRC32, and DirectoryCRC32.
 type ArchiveFooter struct {
-	Version                uint16
-	FooterFlags            uint16
+	MajorVersion           uint16
+	MinorVersion           uint16
 	CentralDirectoryOffset uint64
 	CentralDirectorySize   uint64
 	EntryCount             uint32
-	CentralDirectoryCRC32  uint32
-	FooterCRC32            uint32
 	FooterSize             uint32
 }
 
-// Footer is kept as a compatibility alias for older scaffold call sites.
 type Footer = ArchiveFooter
 
 func EncodeDirectoryHeader(w io.Writer, h DirectoryHeader) error {
 	if w == nil {
 		return ErrNilWriter
 	}
-	if err := ValidateDirectoryHeader(h); err != nil {
+	if err := ValidateDirectoryHeader(h, false); err != nil {
 		return fmt.Errorf("validate directory header: %w", err)
 	}
-	buf := make([]byte, DirectoryHeaderSize)
-	putMagic(buf[0:4], DirectoryMagic)
-	ByteOrder.PutUint32(buf[4:8], h.EntryCount)
-	ByteOrder.PutUint32(buf[8:12], h.DirectoryFlags)
-	ByteOrder.PutUint32(buf[12:16], h.Reserved)
+	buf := marshalDirectoryHeader(h)
 	if _, err := w.Write(buf); err != nil {
 		return fmt.Errorf("write directory header: %w", err)
 	}
@@ -70,15 +65,8 @@ func DecodeDirectoryHeader(r io.Reader) (DirectoryHeader, error) {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return DirectoryHeader{}, fmt.Errorf("read directory header: %w", err)
 	}
-	if !hasMagic(buf, DirectoryMagic) {
-		return DirectoryHeader{}, ErrInvalidMagic
-	}
-	h := DirectoryHeader{
-		EntryCount:     ByteOrder.Uint32(buf[4:8]),
-		DirectoryFlags: ByteOrder.Uint32(buf[8:12]),
-		Reserved:       ByteOrder.Uint32(buf[12:16]),
-	}
-	if err := ValidateDirectoryHeader(h); err != nil {
+	h := unmarshalDirectoryHeader(buf)
+	if err := ValidateDirectoryHeader(h, true); err != nil {
 		return DirectoryHeader{}, fmt.Errorf("validate directory header: %w", err)
 	}
 	return h, nil
@@ -99,14 +87,13 @@ func EncodeDirectoryEntry(w io.Writer, e DirectoryEntry) error {
 	buf := make([]byte, DirectoryEntrySize)
 	buf[0] = byte(e.EntryType)
 	buf[1] = byte(e.CompressionMethod)
-	ByteOrder.PutUint16(buf[2:4], e.EntryFlags)
-	ByteOrder.PutUint32(buf[4:8], e.PathLength)
-	ByteOrder.PutUint64(buf[8:16], e.FileRecordOffset)
-	ByteOrder.PutUint64(buf[16:24], e.DataOffset)
-	ByteOrder.PutUint64(buf[24:32], e.UncompressedSize)
-	ByteOrder.PutUint64(buf[32:40], e.CompressedSize)
-	ByteOrder.PutUint32(buf[40:44], e.DataCRC32)
-	ByteOrder.PutUint32(buf[44:48], e.Reserved)
+	ByteOrder.PutUint32(buf[2:6], e.PathLength)
+	ByteOrder.PutUint64(buf[6:14], e.FileRecordOffset)
+	ByteOrder.PutUint64(buf[14:22], e.DataOffset)
+	ByteOrder.PutUint64(buf[22:30], e.UncompressedSize)
+	ByteOrder.PutUint64(buf[30:38], e.CompressedSize)
+	ByteOrder.PutUint32(buf[38:42], e.DataCRC32)
+	ByteOrder.PutUint32(buf[42:46], e.Reserved)
 	if _, err := w.Write(buf); err != nil {
 		return fmt.Errorf("write directory entry: %w", err)
 	}
@@ -127,14 +114,13 @@ func DecodeDirectoryEntry(r io.Reader) (DirectoryEntry, error) {
 	e := DirectoryEntry{
 		EntryType:         EntryType(buf[0]),
 		CompressionMethod: CompressionMethod(buf[1]),
-		EntryFlags:        ByteOrder.Uint16(buf[2:4]),
-		PathLength:        ByteOrder.Uint32(buf[4:8]),
-		FileRecordOffset:  ByteOrder.Uint64(buf[8:16]),
-		DataOffset:        ByteOrder.Uint64(buf[16:24]),
-		UncompressedSize:  ByteOrder.Uint64(buf[24:32]),
-		CompressedSize:    ByteOrder.Uint64(buf[32:40]),
-		DataCRC32:         ByteOrder.Uint32(buf[40:44]),
-		Reserved:          ByteOrder.Uint32(buf[44:48]),
+		PathLength:        ByteOrder.Uint32(buf[2:6]),
+		FileRecordOffset:  ByteOrder.Uint64(buf[6:14]),
+		DataOffset:        ByteOrder.Uint64(buf[14:22]),
+		UncompressedSize:  ByteOrder.Uint64(buf[22:30]),
+		CompressedSize:    ByteOrder.Uint64(buf[30:38]),
+		DataCRC32:         ByteOrder.Uint32(buf[38:42]),
+		Reserved:          ByteOrder.Uint32(buf[42:46]),
 	}
 	if e.PathLength == 0 || e.PathLength > MaxPathLength {
 		return DirectoryEntry{}, ErrPathTooLong
@@ -157,21 +143,14 @@ func EncodeFooter(w io.Writer, f ArchiveFooter) error {
 	if w == nil {
 		return ErrNilWriter
 	}
+	if f.MajorVersion == 0 {
+		f.MajorVersion = FormatMajor
+	}
 	f.FooterSize = FooterSize
-	if f.Version == 0 {
-		f.Version = FormatVersion
-	}
-	if f.FooterFlags&FooterFlagCentralDirectoryCRC == 0 {
-		f.CentralDirectoryCRC32 = 0
-	}
-	f.FooterCRC32 = 0
-	if err := ValidateFooter(f, false); err != nil {
+	if err := ValidateFooter(f); err != nil {
 		return fmt.Errorf("validate archive footer: %w", err)
 	}
-	buf := marshalFooter(f)
-	crc := internal.CRC32(buf)
-	ByteOrder.PutUint32(buf[32:36], crc)
-	if _, err := w.Write(buf); err != nil {
+	if _, err := w.Write(marshalFooter(f)); err != nil {
 		return fmt.Errorf("write archive footer: %w", err)
 	}
 	return nil
@@ -185,27 +164,19 @@ func DecodeFooter(r io.Reader) (ArchiveFooter, error) {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return ArchiveFooter{}, fmt.Errorf("read archive footer: %w", err)
 	}
-	if !hasMagic(buf, FooterMagic) {
-		return ArchiveFooter{}, ErrInvalidMagic
-	}
 	f := unmarshalFooter(buf)
-	storedCRC := f.FooterCRC32
-	ByteOrder.PutUint32(buf[32:36], 0)
-	if internal.CRC32(buf) != storedCRC {
-		return ArchiveFooter{}, ErrInvalidFooterCRC32
-	}
-	if err := ValidateFooter(f, true); err != nil {
+	if err := ValidateFooter(f); err != nil {
 		return ArchiveFooter{}, fmt.Errorf("validate archive footer: %w", err)
 	}
 	return f, nil
 }
 
-func ValidateDirectoryHeader(h DirectoryHeader) error {
-	if !knownUint32Flags(h.DirectoryFlags, DirectoryFlagsKnownMask) {
-		return ErrUnknownFlags
-	}
+func ValidateDirectoryHeader(h DirectoryHeader, verifyCRCField bool) error {
 	if h.Reserved != 0 {
 		return ErrReservedNonZero
+	}
+	if !verifyCRCField && h.DirectoryCRC32 != 0 {
+		return ErrInvalidDirectoryCRC32
 	}
 	return nil
 }
@@ -216,9 +187,6 @@ func ValidateDirectoryEntry(e DirectoryEntry) error {
 	}
 	if err := validateCompressionMethod(e.CompressionMethod); err != nil {
 		return err
-	}
-	if !knownUint16Flags(e.EntryFlags, EntryFlagsKnownMask) {
-		return ErrUnknownFlags
 	}
 	if e.PathLength == 0 || e.PathLength > MaxPathLength || int(e.PathLength) != len([]byte(e.Path)) {
 		return ErrPathTooLong
@@ -237,54 +205,63 @@ func ValidateDirectoryEntry(e DirectoryEntry) error {
 	if e.CompressionMethod == CompressionStore && e.EntryType == EntryTypeFile && e.CompressedSize != e.UncompressedSize {
 		return ErrInvalidEntrySizes
 	}
-	if e.EntryFlags&EntryFlagCRC32Present == 0 && e.DataCRC32 != 0 {
-		return ErrInvalidEntryCRC
-	}
 	return nil
 }
 
-func ValidateFooter(f ArchiveFooter, verifyCRCField bool) error {
-	if f.Version != FormatVersion {
-		return ErrUnsupportedVersion
-	}
-	if !knownUint16Flags(f.FooterFlags, FooterFlagsKnownMask) {
-		return ErrUnknownFlags
-	}
-	if f.FooterFlags&FooterFlagCentralDirectoryCRC == 0 && f.CentralDirectoryCRC32 != 0 {
-		return ErrInvalidEntryCRC
+func ValidateFooter(f ArchiveFooter) error {
+	if _, err := CheckCompatibility(f.MajorVersion, f.MinorVersion); err != nil {
+		return err
 	}
 	if f.FooterSize != FooterSize {
 		return ErrInvalidSize
 	}
-	if !verifyCRCField && f.FooterCRC32 != 0 {
-		return ErrInvalidFooterCRC32
-	}
 	return nil
+}
+
+func DirectoryCRC32(directory []byte) uint32 {
+	if len(directory) >= 8 {
+		copyForCRC := make([]byte, len(directory))
+		copy(copyForCRC, directory)
+		ByteOrder.PutUint32(copyForCRC[4:8], 0)
+		return internal.CRC32(copyForCRC)
+	}
+	return internal.CRC32(directory)
+}
+
+func marshalDirectoryHeader(h DirectoryHeader) []byte {
+	buf := make([]byte, DirectoryHeaderSize)
+	ByteOrder.PutUint32(buf[0:4], h.EntryCount)
+	ByteOrder.PutUint32(buf[4:8], h.DirectoryCRC32)
+	ByteOrder.PutUint32(buf[8:12], h.Reserved)
+	return buf
+}
+
+func unmarshalDirectoryHeader(buf []byte) DirectoryHeader {
+	return DirectoryHeader{
+		EntryCount:     ByteOrder.Uint32(buf[0:4]),
+		DirectoryCRC32: ByteOrder.Uint32(buf[4:8]),
+		Reserved:       ByteOrder.Uint32(buf[8:12]),
+	}
 }
 
 func marshalFooter(f ArchiveFooter) []byte {
 	buf := make([]byte, FooterSize)
-	putMagic(buf[0:4], FooterMagic)
-	ByteOrder.PutUint16(buf[4:6], f.Version)
-	ByteOrder.PutUint16(buf[6:8], f.FooterFlags)
-	ByteOrder.PutUint64(buf[8:16], f.CentralDirectoryOffset)
-	ByteOrder.PutUint64(buf[16:24], f.CentralDirectorySize)
-	ByteOrder.PutUint32(buf[24:28], f.EntryCount)
-	ByteOrder.PutUint32(buf[28:32], f.CentralDirectoryCRC32)
-	ByteOrder.PutUint32(buf[32:36], f.FooterCRC32)
-	ByteOrder.PutUint32(buf[36:40], f.FooterSize)
+	ByteOrder.PutUint16(buf[0:2], f.MajorVersion)
+	ByteOrder.PutUint16(buf[2:4], f.MinorVersion)
+	ByteOrder.PutUint64(buf[4:12], f.CentralDirectoryOffset)
+	ByteOrder.PutUint64(buf[12:20], f.CentralDirectorySize)
+	ByteOrder.PutUint32(buf[20:24], f.EntryCount)
+	ByteOrder.PutUint32(buf[24:28], f.FooterSize)
 	return buf
 }
 
 func unmarshalFooter(buf []byte) ArchiveFooter {
 	return ArchiveFooter{
-		Version:                ByteOrder.Uint16(buf[4:6]),
-		FooterFlags:            ByteOrder.Uint16(buf[6:8]),
-		CentralDirectoryOffset: ByteOrder.Uint64(buf[8:16]),
-		CentralDirectorySize:   ByteOrder.Uint64(buf[16:24]),
-		EntryCount:             ByteOrder.Uint32(buf[24:28]),
-		CentralDirectoryCRC32:  ByteOrder.Uint32(buf[28:32]),
-		FooterCRC32:            ByteOrder.Uint32(buf[32:36]),
-		FooterSize:             ByteOrder.Uint32(buf[36:40]),
+		MajorVersion:           ByteOrder.Uint16(buf[0:2]),
+		MinorVersion:           ByteOrder.Uint16(buf[2:4]),
+		CentralDirectoryOffset: ByteOrder.Uint64(buf[4:12]),
+		CentralDirectorySize:   ByteOrder.Uint64(buf[12:20]),
+		EntryCount:             ByteOrder.Uint32(buf[20:24]),
+		FooterSize:             ByteOrder.Uint32(buf[24:28]),
 	}
 }

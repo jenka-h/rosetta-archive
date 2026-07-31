@@ -5,11 +5,11 @@ import (
 	"io"
 )
 
-// EntryHeader is the fixed 48-byte header that begins every file record.
+// EntryHeader is the fixed header that begins every file record.
+// It contains no magic and no flags; DataCRC32 is always the CRC-32 field for file data.
 type EntryHeader struct {
 	EntryType           EntryType
 	CompressionMethod   CompressionMethod
-	EntryFlags          uint16
 	PathLength          uint32
 	ExtraMetadataLength uint32
 	UncompressedSize    uint64
@@ -34,17 +34,15 @@ func EncodeEntryHeader(w io.Writer, h EntryHeader) error {
 		return fmt.Errorf("validate entry header: %w", err)
 	}
 	buf := make([]byte, EntryHeaderSize)
-	putMagic(buf[0:4], EntryMagic)
-	buf[4] = byte(h.EntryType)
-	buf[5] = byte(h.CompressionMethod)
-	ByteOrder.PutUint16(buf[6:8], h.EntryFlags)
-	ByteOrder.PutUint32(buf[8:12], h.PathLength)
-	ByteOrder.PutUint32(buf[12:16], h.ExtraMetadataLength)
-	ByteOrder.PutUint64(buf[16:24], h.UncompressedSize)
-	ByteOrder.PutUint64(buf[24:32], h.CompressedSize)
-	ByteOrder.PutUint64(buf[32:40], uint64(h.ModificationTime))
-	ByteOrder.PutUint32(buf[40:44], h.DataCRC32)
-	ByteOrder.PutUint32(buf[44:48], h.Reserved)
+	buf[0] = byte(h.EntryType)
+	buf[1] = byte(h.CompressionMethod)
+	ByteOrder.PutUint32(buf[2:6], h.PathLength)
+	ByteOrder.PutUint32(buf[6:10], h.ExtraMetadataLength)
+	ByteOrder.PutUint64(buf[10:18], h.UncompressedSize)
+	ByteOrder.PutUint64(buf[18:26], h.CompressedSize)
+	ByteOrder.PutUint64(buf[26:34], uint64(h.ModificationTime))
+	ByteOrder.PutUint32(buf[34:38], h.DataCRC32)
+	ByteOrder.PutUint32(buf[38:42], h.Reserved)
 	if _, err := w.Write(buf); err != nil {
 		return fmt.Errorf("write entry header: %w", err)
 	}
@@ -59,20 +57,16 @@ func DecodeEntryHeader(r io.Reader) (EntryHeader, error) {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return EntryHeader{}, fmt.Errorf("read entry header: %w", err)
 	}
-	if !hasMagic(buf, EntryMagic) {
-		return EntryHeader{}, ErrInvalidMagic
-	}
 	h := EntryHeader{
-		EntryType:           EntryType(buf[4]),
-		CompressionMethod:   CompressionMethod(buf[5]),
-		EntryFlags:          ByteOrder.Uint16(buf[6:8]),
-		PathLength:          ByteOrder.Uint32(buf[8:12]),
-		ExtraMetadataLength: ByteOrder.Uint32(buf[12:16]),
-		UncompressedSize:    ByteOrder.Uint64(buf[16:24]),
-		CompressedSize:      ByteOrder.Uint64(buf[24:32]),
-		ModificationTime:    int64(ByteOrder.Uint64(buf[32:40])),
-		DataCRC32:           ByteOrder.Uint32(buf[40:44]),
-		Reserved:            ByteOrder.Uint32(buf[44:48]),
+		EntryType:           EntryType(buf[0]),
+		CompressionMethod:   CompressionMethod(buf[1]),
+		PathLength:          ByteOrder.Uint32(buf[2:6]),
+		ExtraMetadataLength: ByteOrder.Uint32(buf[6:10]),
+		UncompressedSize:    ByteOrder.Uint64(buf[10:18]),
+		CompressedSize:      ByteOrder.Uint64(buf[18:26]),
+		ModificationTime:    int64(ByteOrder.Uint64(buf[26:34])),
+		DataCRC32:           ByteOrder.Uint32(buf[34:38]),
+		Reserved:            ByteOrder.Uint32(buf[38:42]),
 	}
 	if err := ValidateEntryHeader(h); err != nil {
 		return EntryHeader{}, fmt.Errorf("validate entry header: %w", err)
@@ -136,9 +130,6 @@ func ValidateEntryHeader(h EntryHeader) error {
 	if err := validateCompressionMethod(h.CompressionMethod); err != nil {
 		return err
 	}
-	if !knownUint16Flags(h.EntryFlags, EntryFlagsKnownMask) {
-		return ErrUnknownFlags
-	}
 	if h.PathLength == 0 || h.PathLength > MaxPathLength {
 		return ErrPathTooLong
 	}
@@ -155,12 +146,6 @@ func ValidateEntryHeader(h EntryHeader) error {
 	}
 	if h.CompressionMethod == CompressionStore && h.EntryType == EntryTypeFile && h.CompressedSize != h.UncompressedSize {
 		return ErrInvalidEntrySizes
-	}
-	if h.EntryFlags&EntryFlagCRC32Present == 0 && h.DataCRC32 != 0 {
-		return ErrInvalidEntryCRC
-	}
-	if h.EntryFlags&EntryFlagModificationTime == 0 && h.ModificationTime != 0 {
-		return ErrInvalidModificationTime
 	}
 	return nil
 }

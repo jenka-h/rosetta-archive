@@ -7,35 +7,21 @@ import (
 )
 
 const (
-	ArchiveMagic   = "ROSA"
-	EntryMagic     = "RENT"
-	DirectoryMagic = "RDIR"
-	FooterMagic    = "REOF"
+	// ArchiveMagic is the only magic value in the format. Entry, directory, and footer
+	// structures are located by fixed layout and offsets instead of repeated magic bytes.
+	ArchiveMagic = "ROSA"
 
-	FormatVersion uint16 = 1
+	FormatMajor uint16 = 1
+	FormatMinor uint16 = 0
 
 	ArchiveHeaderSize   uint32 = 16
-	EntryHeaderSize     uint32 = 48
-	DirectoryHeaderSize uint32 = 16
-	DirectoryEntrySize  uint32 = 48
-	FooterSize          uint32 = 40
+	EntryHeaderSize     uint32 = 42
+	DirectoryHeaderSize uint32 = 12
+	DirectoryEntrySize  uint32 = 46
+	FooterSize          uint32 = 28
 
 	MaxPathLength          uint32 = 1 << 20
 	MaxExtraMetadataLength uint32 = 16 << 20
-)
-
-const (
-	GlobalFlagDeterministic       uint16 = 1 << 0
-	GlobalFlagExplicitDirectories uint16 = 1 << 1
-	GlobalFlagsKnownMask          uint16 = GlobalFlagDeterministic | GlobalFlagExplicitDirectories
-	EntryFlagCRC32Present         uint16 = 1 << 0
-	EntryFlagModificationTime     uint16 = 1 << 1
-	EntryFlagExecutable           uint16 = 1 << 2
-	EntryFlagsKnownMask           uint16 = EntryFlagCRC32Present | EntryFlagModificationTime | EntryFlagExecutable
-	DirectoryFlagSortedByPath     uint32 = 1 << 0
-	DirectoryFlagsKnownMask       uint32 = DirectoryFlagSortedByPath
-	FooterFlagCentralDirectoryCRC uint16 = 1 << 0
-	FooterFlagsKnownMask          uint16 = FooterFlagCentralDirectoryCRC
 )
 
 // ByteOrder is the byte order used for every multibyte field in ROSA v1.
@@ -111,12 +97,4 @@ func putMagic(dst []byte, magic string) {
 
 func hasMagic(src []byte, magic string) bool {
 	return string(src[:4]) == magic
-}
-
-func knownUint16Flags(flags uint16, mask uint16) bool {
-	return flags&^mask == 0
-}
-
-func knownUint32Flags(flags uint32, mask uint32) bool {
-	return flags&^mask == 0
 }

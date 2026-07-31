@@ -2,7 +2,7 @@
 
 Implementation base for ROSA, a custom binary archive format written in Go.
 
-This repository currently contains only the project scaffold and operation stubs. The archive header, metadata records, payload layout, footer, and checksum coverage are intentionally not defined yet.
+This repository currently contains a project scaffold, archive operation stubs, and the first binary-format codec baseline in `internal/format`.
 
 ## Commands
 
@@ -19,7 +19,7 @@ Planned commands:
 - `rosetta verify <archive.rosa>`
 - `rosetta extract <archive.rosa> <destination>`
 
-Each operation currently returns a clear `not implemented` error until the binary format is specified.
+Archive operations currently return clear `not implemented` errors until create/list/extract/verify are wired to the format codecs.
 
 ## Development
 
@@ -32,8 +32,8 @@ go vet ./...
 
 ## Current status
 
-- Temporary empty format package in `internal/format`
+- Binary-format codec baseline in `internal/format`
 - Archive operation stubs in `internal/archive`
 - CLI command routing in `cmd/rosetta`
 - Path normalization and CRC32 helper base in `internal`
-- Placeholder specification in `docs/specification.md`
+- Format summary in `docs/specification.md`
