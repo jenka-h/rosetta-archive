@@ -1,17 +1,14 @@
 package archive
 
 // CreateOptions holds optional archive creation features. Required ROSA v1 behavior
-// should be implemented before any bonus feature is enabled.
+// should be implemented before compression is enabled.
 type CreateOptions struct {
-	Compress         bool
-	Encrypt          bool
-	DigitalSignature bool
+	Compress bool
 }
 
-// CreateWithOptions creates an archive with optional future storage features.
+// CreateWithOptions creates an archive with optional future compression.
 //
-// TODO: reject unsupported options until compression, encryption, and digital
-// signature each have a written binary spec, tests, and compatibility rules.
+// TODO: reject compression until it has a written binary spec, tests, and compatibility rules.
 func CreateWithOptions(archivePath string, sources []string, options CreateOptions) error {
 	if archivePath == "" {
 		return notImplemented("create archive with options: missing archive path")
@@ -19,8 +16,8 @@ func CreateWithOptions(archivePath string, sources []string, options CreateOptio
 	if len(sources) == 0 {
 		return notImplemented("create archive with options: missing source paths")
 	}
-	if options.Compress || options.Encrypt || options.DigitalSignature {
-		return notImplemented("create archive with options: requested bonus feature")
+	if options.Compress {
+		return notImplemented("create archive with options: compression")
 	}
 	return Create(archivePath, sources)
 }

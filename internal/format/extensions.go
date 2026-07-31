@@ -6,25 +6,21 @@ import (
 	core "rosetta-archive/internal"
 )
 
-// FeatureID identifies optional future storage features. Version 1 reserves these
-// hooks but does not implement the feature payload formats.
+// FeatureID identifies optional extension features. ROSA currently reserves only
+// compression as an extension hook.
 type FeatureID uint16
 
-const (
-	FeatureCompression FeatureID = iota + 1
-	FeatureEncryption
-	FeatureDigitalSignature
-)
+const FeatureCompression FeatureID = 1
 
-// ExtensionRecord is a future TLV-style metadata record placeholder.
+// ExtensionRecord is a future compression metadata placeholder.
 type ExtensionRecord struct {
 	Type  FeatureID
 	Value []byte
 }
 
-// EncodeExtensionRecord writes a future extension metadata record.
+// EncodeExtensionRecord writes a future compression extension metadata record.
 //
-// TODO: implement only after the extension TLV layout is added to the written spec.
+// TODO: implement only after the compression extension TLV layout is added to the written spec.
 func EncodeExtensionRecord(w io.Writer, record ExtensionRecord) error {
 	if w == nil {
 		return core.ErrNilWriter
@@ -32,9 +28,9 @@ func EncodeExtensionRecord(w io.Writer, record ExtensionRecord) error {
 	return core.ErrFeatureNotImplemented
 }
 
-// DecodeExtensionRecord reads a future extension metadata record.
+// DecodeExtensionRecord reads a future compression extension metadata record.
 //
-// TODO: enforce length bounds before allocation when the extension layout is defined.
+// TODO: enforce length bounds before allocation when the compression extension layout is defined.
 func DecodeExtensionRecord(r io.Reader) (ExtensionRecord, error) {
 	if r == nil {
 		return ExtensionRecord{}, core.ErrNilReader

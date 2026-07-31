@@ -35,16 +35,7 @@ func EncodeEntryHeader(w io.Writer, h EntryHeader) error {
 	if err := ValidateEntryHeader(h); err != nil {
 		return fmt.Errorf("validate entry header: %w", err)
 	}
-	buf := make([]byte, EntryHeaderSize)
-	buf[0] = byte(h.EntryType)
-	buf[1] = byte(h.CompressionMethod)
-	ByteOrder.PutUint32(buf[2:6], h.PathLength)
-	ByteOrder.PutUint32(buf[6:10], h.ExtraMetadataLength)
-	ByteOrder.PutUint64(buf[10:18], h.UncompressedSize)
-	ByteOrder.PutUint64(buf[18:26], h.CompressedSize)
-	ByteOrder.PutUint64(buf[26:34], uint64(h.ModificationTime))
-	ByteOrder.PutUint32(buf[34:38], h.DataCRC32)
-	ByteOrder.PutUint32(buf[38:42], h.Reserved)
+	buf := marshalEntryHeader(h)
 	if _, err := w.Write(buf); err != nil {
 		return fmt.Errorf("write entry header: %w", err)
 	}
@@ -59,17 +50,7 @@ func DecodeEntryHeader(r io.Reader) (EntryHeader, error) {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return EntryHeader{}, fmt.Errorf("read entry header: %w", err)
 	}
-	h := EntryHeader{
-		EntryType:           EntryType(buf[0]),
-		CompressionMethod:   CompressionMethod(buf[1]),
-		PathLength:          ByteOrder.Uint32(buf[2:6]),
-		ExtraMetadataLength: ByteOrder.Uint32(buf[6:10]),
-		UncompressedSize:    ByteOrder.Uint64(buf[10:18]),
-		CompressedSize:      ByteOrder.Uint64(buf[18:26]),
-		ModificationTime:    int64(ByteOrder.Uint64(buf[26:34])),
-		DataCRC32:           ByteOrder.Uint32(buf[34:38]),
-		Reserved:            ByteOrder.Uint32(buf[38:42]),
-	}
+	h := unmarshalEntryHeader(buf)
 	if err := ValidateEntryHeader(h); err != nil {
 		return EntryHeader{}, fmt.Errorf("validate entry header: %w", err)
 	}

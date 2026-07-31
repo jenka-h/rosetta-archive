@@ -20,7 +20,7 @@ const (
 	EntryHeaderSize     uint32 = 42
 	DirectoryHeaderSize uint32 = 12
 	DirectoryEntrySize  uint32 = 46
-	FooterSize          uint32 = 28
+	FooterSize          uint32 = 24
 
 	MaxPathLength          uint32 = 1 << 20
 	MaxExtraMetadataLength uint32 = 16 << 20
