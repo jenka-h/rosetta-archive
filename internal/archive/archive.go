@@ -3,33 +3,53 @@ package archive
 import (
 	"errors"
 	"fmt"
+	"io"
+
+	"rosetta-archive/internal/format"
 )
 
 var ErrNotImplemented = errors.New("rosa archive operation not implemented")
 
-type EntryType uint8
-
-// membedakan directory dengan file biasa, bisa konsider symbolic link, tapi struktur filesystem symbolic jarang
-// dipakai, sehingga untuk sementara entry hanya dua berikut ini
-const (
-	EntryTypeFile EntryType = iota + 1
-	EntryTypeDirectory
-)
-
-// entry sementara
 type Entry struct {
-	Path   string
-	Type   EntryType
-	Size   uint64
-	CRC32  uint32
-	Offset uint64
+	Path       string
+	Type       format.EntryType
+	Size       uint64
+	CRC32      uint32
+	Offset     uint64
+	DataOffset uint64
 }
 
-// metadata sementara
 type InfoSummary struct {
-	EntryCount uint64
+	FormatName   string
+	MajorVersion uint8
+	MinorVersion uint8
+	ArchiveSize  uint64
+
+	EntryCount     uint32
+	FileCount      uint32
+	DirectoryCount uint32
+
+	StoredSize       uint64
+	UncompressedSize uint64
 }
 
 func notImplemented(operation string) error {
 	return fmt.Errorf("%s: %w", operation, ErrNotImplemented)
+}
+
+func closeIfNeeded(c io.Closer) {
+	if c != nil {
+		_ = c.Close()
+	}
+}
+
+func entryFromDirectory(e format.DirectoryEntry) Entry {
+	return Entry{
+		Path:       e.Path,
+		Type:       e.EntryType,
+		Size:       e.UncompressedSize,
+		CRC32:      e.DataCRC32,
+		Offset:     e.FileRecordOffset,
+		DataOffset: e.DataOffset,
+	}
 }

@@ -7,16 +7,12 @@ import (
 	core "rosetta-archive/internal"
 )
 
-// ArchiveFooter is the fixed final archive structure. It has no magic, version,
-// or CRC; integrity is covered by HeaderCRC32, DataCRC32, and DirectoryCRC32.
 type ArchiveFooter struct {
 	CentralDirectoryOffset uint64
 	CentralDirectorySize   uint64
 	EntryCount             uint32
 	FooterSize             uint32
 }
-
-type Footer = ArchiveFooter
 
 func EncodeFooter(w io.Writer, f ArchiveFooter) error {
 	if w == nil {

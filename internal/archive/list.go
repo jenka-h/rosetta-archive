@@ -1,11 +1,15 @@
 package archive
 
-// cmd untuk menampilkan daftar entri dalam arsip ROSA
-//
-// TODO: call Open and return parsed entries once archive parsing exists.
+import "fmt"
+
 func List(archivePath string) ([]Entry, error) {
 	if archivePath == "" {
-		return nil, notImplemented("list archive: missing archive path")
+		return nil, fmt.Errorf("list archive: missing archive path")
 	}
-	return nil, notImplemented("list archive")
+	r, err := Open(archivePath)
+	if err != nil {
+		return nil, err
+	}
+	defer closeIfNeeded(r)
+	return r.Entries(), nil
 }

@@ -24,8 +24,6 @@ type ArchiveHeader struct {
 	HeaderCRC32  uint32
 }
 
-type Header = ArchiveHeader
-
 func NewArchiveHeader() ArchiveHeader {
 	return ArchiveHeader{
 		MajorVersion: FormatMajor,
@@ -78,7 +76,7 @@ func DecodeHeader(r io.Reader) (ArchiveHeader, error) {
 }
 
 func ValidateHeader(h ArchiveHeader, verifyCRCField bool) error {
-	if _, err := CheckCompatibility(h.MajorVersion, h.MinorVersion); err != nil {
+	if err := CheckCompatibility(h.MajorVersion, h.MinorVersion); err != nil {
 		return err
 	}
 	if h.HeaderSize != ArchiveHeaderSize {
