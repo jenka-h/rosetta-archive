@@ -69,7 +69,7 @@ go run ./cmd/rosetta extract tests/out/example.rosa tests/extract
 ### Read One File With Random Access
 
 ```sh
-go run ./cmd/rosetta cat tests/out/example.rosa in/file.txt
+go run ./cmd/rosetta cat tests/out/example.rosa in/input/hello.txt
 ```
 
 ### Recover Damaged Archive Entries

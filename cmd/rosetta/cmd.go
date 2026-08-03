@@ -124,7 +124,11 @@ func execute(request CommandRequest, stdout io.Writer) error {
 	case CommandInspect:
 		return archive.Inspect(request.ArchivePath, stdout)
 	case CommandVerify:
-		return archive.Verify(request.ArchivePath)
+		if err := archive.Verify(request.ArchivePath); err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, "archive ok")
+		return nil
 	case CommandExtract:
 		return archive.Extract(request.ArchivePath, request.Destination)
 	case CommandCat:
