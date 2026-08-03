@@ -2,6 +2,9 @@
 
 `rosetta-archive` is a Go implementation of ROSA, a custom binary archive format.
 
+## Video
+[Video Demo](https://youtu.be/uKs6tdSyooQ)
+
 ## Project Structure
 
 ```text
@@ -24,7 +27,7 @@ go run ./cmd/rosetta --help
 ### Create
 
 ```sh
-go run ./cmd/rosetta create tests/out/example.rosa tests/in
+go run ./cmd/rosetta create <archive_path> <input_path> [input_path...]
 ```
 
 ### Create With Compression
@@ -32,48 +35,47 @@ go run ./cmd/rosetta create tests/out/example.rosa tests/in
 Uses `ROSA1` RLE compression.
 
 ```sh
-go run ./cmd/rosetta create-compressed tests/out/example.rosa tests/in
+go run ./cmd/rosetta create-compressed <archive_path> <input_path> [input_path...]
 ```
 
 ### List
 
 ```sh
-go run ./cmd/rosetta list tests/out/example.rosa
+go run ./cmd/rosetta list <archive_path>
 ```
 
 ### Info
 
 ```sh
-go run ./cmd/rosetta info tests/out/example.rosa
+go run ./cmd/rosetta info <archive_path>
 ```
 
 ### Inspect
 
 ```sh
-go run ./cmd/rosetta inspect tests/out/example.rosa
+go run ./cmd/rosetta inspect <archive_path>
 ```
 
 ### Verify
 
 ```sh
-go run ./cmd/rosetta verify tests/out/example.rosa
+go run ./cmd/rosetta verify <archive_path>
 ```
 
 ### Extract
 
 ```sh
-rm -rf tests/extract/*
-go run ./cmd/rosetta extract tests/out/example.rosa tests/extract
+go run ./cmd/rosetta extract <archive_path> <destination_path>
 ```
 
 ### Read One File With Random Access
 
 ```sh
-go run ./cmd/rosetta cat tests/out/example.rosa in/input/hello.txt
+go run ./cmd/rosetta cat <archive_path> <entry_path>
 ```
 
 ### Recover Damaged Archive Entries
 
 ```sh
-go run ./cmd/rosetta recover tests/out/example.rosa
+go run ./cmd/rosetta recover <archive_path>
 ```
