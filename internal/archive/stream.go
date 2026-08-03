@@ -8,9 +8,6 @@ import (
 	"rosetta-archive/internal/format"
 )
 
-// Stream visits entries from an io.Reader. The current ROSA layout stores the
-// central directory location in the footer, so this function buffers the input in
-// order to reuse the same validated parser as Open/NewReader.
 func Stream(src io.Reader, visit func(Entry, io.Reader) error) error {
 	if src == nil {
 		return fmt.Errorf("stream archive: nil reader")

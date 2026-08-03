@@ -77,17 +77,3 @@ go run ./cmd/rosetta cat tests/out/example.rosa in/file.txt
 ```sh
 go run ./cmd/rosetta recover tests/out/example.rosa
 ```
-
-## Test Commands
-
-```sh
-go test ./...
-go vet ./...
-```
-
-From `/home/real/Zed`:
-
-```sh
-go -C SISTER/rosetta-archive test ./...
-go -C SISTER/rosetta-archive vet ./...
-```

@@ -8,9 +8,6 @@ import (
 	"rosetta-archive/internal/format"
 )
 
-// Recover validates an archive from disk. If footer/central-directory parsing
-// fails, it scans local file records from the data region and returns recoverable
-// entries whose local metadata is still structurally valid.
 func Recover(archivePath string) ([]Entry, error) {
 	if archivePath == "" {
 		return nil, fmt.Errorf("recover archive: missing archive path")
@@ -27,9 +24,6 @@ func Recover(archivePath string) ([]Entry, error) {
 	return RecoverReader(f, info.Size())
 }
 
-// RecoverReader validates an archive from an existing random-access reader. It
-// falls back to sequential local-record scanning when the central directory or
-// footer cannot be parsed.
 func RecoverReader(r io.ReaderAt, size int64) ([]Entry, error) {
 	reader, err := NewReader(r, size)
 	if err == nil {
