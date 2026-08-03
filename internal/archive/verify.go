@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	core "rosetta-archive/internal"
 	"rosetta-archive/internal/format"
 )
 
@@ -116,15 +115,12 @@ func compressionName(m format.CompressionMethod) string {
 }
 
 func (r *Reader) verifyPayload(entry format.DirectoryEntry) error {
-	written, sum, err := core.CopyCRC32(io.Discard, io.NewSectionReader(r.r, int64(entry.DataOffset), int64(entry.CompressedSize)))
+	payload, err := r.readPayload(entry)
 	if err != nil {
-		return fmt.Errorf("read payload: %w", err)
+		return err
 	}
-	if uint64(written) != entry.CompressedSize {
+	if uint64(len(payload)) != entry.UncompressedSize {
 		return fmt.Errorf("payload size mismatch")
-	}
-	if sum != entry.DataCRC32 {
-		return fmt.Errorf("crc32 mismatch")
 	}
 	return nil
 }

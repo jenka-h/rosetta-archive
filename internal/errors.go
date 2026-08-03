@@ -18,5 +18,4 @@ var (
 	ErrInvalidPath              = errors.New("invalid archive path")
 	ErrPathTooLong              = errors.New("archive path exceeds maximum length")
 	ErrExtraMetadataTooLong     = errors.New("extra metadata exceeds maximum length")
-	ErrFeatureNotImplemented    = errors.New("format feature is not implemented")
 )

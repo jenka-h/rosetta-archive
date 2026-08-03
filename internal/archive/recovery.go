@@ -1,51 +1,96 @@
 package archive
 
-import "io"
+import (
+	"fmt"
+	"io"
+	"os"
 
-// RecoveryOptions controls best-effort recovery from a partially damaged archive.
-//
-// Recovery is a bonus feature and is intentionally only a stub until the required
-// create/list/extract/verify path is complete.
-type RecoveryOptions struct {
-	// AllowPartialEntries permits returning entries whose metadata can be parsed even
-	// when unrelated archive regions are corrupt. File payloads must still be verified
-	// before extraction.
-	AllowPartialEntries bool
-	// ScanForEntryRecords permits sequential scanning for plausible local entry
-	// records when the central directory or footer is damaged.
-	ScanForEntryRecords bool
-}
+	"rosetta-archive/internal/format"
+)
 
-// RecoveryReport describes entries and corruption found during best-effort recovery.
-type RecoveryReport struct {
-	RecoveredEntries []Entry
-	Warnings         []string
-}
-
-// Recover opens an archive from disk and attempts best-effort recovery.
-//
-// TODO: implement after normal parsing/verification works. Planned behavior:
-//   - read valid header when present;
-//   - locate footer and central directory when intact;
-//   - optionally scan for structurally valid entry records when directory/footer is corrupt;
-//   - validate every recovered path, size, offset, and CRC before exposing it;
-//   - never extract unverified bytes silently.
-func Recover(archivePath string, options RecoveryOptions) (RecoveryReport, error) {
+// Recover validates an archive from disk. If footer/central-directory parsing
+// fails, it scans local file records from the data region and returns recoverable
+// entries whose local metadata is still structurally valid.
+func Recover(archivePath string) ([]Entry, error) {
 	if archivePath == "" {
-		return RecoveryReport{}, notImplemented("recover archive: missing archive path")
+		return nil, fmt.Errorf("recover archive: missing archive path")
 	}
-	return RecoveryReport{}, notImplemented("recover archive")
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return nil, fmt.Errorf("open archive: %w", err)
+	}
+	defer closeIfNeeded(f)
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat archive: %w", err)
+	}
+	return RecoverReader(f, info.Size())
 }
 
-// RecoverReader attempts best-effort recovery from an existing random-access reader.
-//
-// TODO: share implementation with Recover and keep all bounds checks centralized.
-func RecoverReader(r io.ReaderAt, size int64, options RecoveryOptions) (RecoveryReport, error) {
-	if r == nil {
-		return RecoveryReport{}, notImplemented("recover archive reader: nil reader")
+// RecoverReader validates an archive from an existing random-access reader. It
+// falls back to sequential local-record scanning when the central directory or
+// footer cannot be parsed.
+func RecoverReader(r io.ReaderAt, size int64) ([]Entry, error) {
+	reader, err := NewReader(r, size)
+	if err == nil {
+		return reader.Entries(), nil
 	}
-	if size < 0 {
-		return RecoveryReport{}, notImplemented("recover archive reader: negative size")
+	entries, scanErr := scanLocalEntries(r, size)
+	if scanErr != nil {
+		return nil, fmt.Errorf("normal parse failed: %v; recovery scan failed: %w", err, scanErr)
 	}
-	return RecoveryReport{}, notImplemented("recover archive reader")
+	return entries, nil
+}
+
+func scanLocalEntries(r io.ReaderAt, size int64) ([]Entry, error) {
+	if size < int64(format.ArchiveHeaderSize) {
+		return nil, fmt.Errorf("archive too small")
+	}
+	if _, err := format.DecodeHeader(io.NewSectionReader(r, 0, int64(format.ArchiveHeaderSize))); err != nil {
+		return nil, fmt.Errorf("decode header: %w", err)
+	}
+	limit := uint64(size)
+	if size > int64(format.FooterSize) {
+		limit = uint64(size - int64(format.FooterSize))
+	}
+	offset := uint64(format.ArchiveHeaderSize)
+	entries := make([]Entry, 0)
+	seen := make(map[string]struct{})
+	for offset+uint64(format.EntryHeaderSize) <= limit {
+		entry, next, err := scanOneEntry(r, offset, limit)
+		if err != nil {
+			break
+		}
+		if _, ok := seen[entry.Path]; ok {
+			break
+		}
+		seen[entry.Path] = struct{}{}
+		entries = append(entries, entry)
+		offset = next
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no recoverable entries")
+	}
+	return entries, nil
+}
+
+func scanOneEntry(r io.ReaderAt, offset uint64, limit uint64) (Entry, uint64, error) {
+	section := io.NewSectionReader(r, int64(offset), int64(limit-offset))
+	local, err := format.DecodeEntry(section)
+	if err != nil {
+		return Entry{}, offset, err
+	}
+	dataOffset := offset + uint64(format.EntryHeaderSize) + uint64(local.Header.PathLength) + uint64(local.Header.ExtraMetadataLength)
+	end := dataOffset + local.Header.CompressedSize
+	if end < dataOffset || end > limit {
+		return Entry{}, offset, fmt.Errorf("entry payload outside recoverable range")
+	}
+	return Entry{
+		Path:       local.Path,
+		Type:       local.Header.EntryType,
+		Size:       local.Header.UncompressedSize,
+		CRC32:      local.Header.DataCRC32,
+		Offset:     offset,
+		DataOffset: dataOffset,
+	}, end, nil
 }

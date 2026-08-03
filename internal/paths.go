@@ -12,7 +12,6 @@ const (
 	MaxPathLength = 4096      // maximum length dari path di archive
 )
 
-// TODO: extend this when traversal code defines exact source-root behavior.
 func NormalizeArchivePath(p string) (string, error) {
 	if p == "" {
 		return "", errors.New("empty archive path")

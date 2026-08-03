@@ -7,16 +7,12 @@ import (
 	core "rosetta-archive/internal"
 )
 
-// DirectoryHeader begins the central directory.
-// DirectoryCRC32 is calculated over the complete central directory bytes with this
-// field encoded as zero.
 type DirectoryHeader struct {
 	EntryCount     uint32
 	DirectoryCRC32 uint32
 	Reserved       uint32
 }
 
-// DirectoryEntry is one fixed central-directory record plus its UTF-8 path.
 type DirectoryEntry struct {
 	EntryType         EntryType
 	CompressionMethod CompressionMethod

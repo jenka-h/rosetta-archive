@@ -1,14 +1,10 @@
 package archive
 
 import (
-	"errors"
-	"fmt"
 	"io"
 
 	"rosetta-archive/internal/format"
 )
-
-var ErrNotImplemented = errors.New("rosa archive operation not implemented")
 
 type Entry struct {
 	Path       string
@@ -31,10 +27,6 @@ type InfoSummary struct {
 
 	StoredSize       uint64
 	UncompressedSize uint64
-}
-
-func notImplemented(operation string) error {
-	return fmt.Errorf("%s: %w", operation, ErrNotImplemented)
 }
 
 func closeIfNeeded(c io.Closer) {

@@ -7,8 +7,6 @@ import (
 	core "rosetta-archive/internal"
 )
 
-// EntryHeader is the fixed header that begins every file record.
-// It contains no magic and no flags; DataCRC32 is always the CRC-32 field for file data.
 type EntryHeader struct {
 	EntryType           EntryType
 	CompressionMethod   CompressionMethod

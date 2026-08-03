@@ -2,7 +2,6 @@ package archive
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,18 +79,15 @@ func (r *Reader) extractFile(entry format.DirectoryEntry, target string) error {
 	tmpPath := tmp.Name()
 	defer func() { _ = os.Remove(tmpPath) }()
 
-	written, sum, err := core.CopyCRC32(tmp, io.NewSectionReader(r.r, int64(entry.DataOffset), int64(entry.CompressedSize)))
+	payload, err := r.readPayload(entry)
+	if err == nil {
+		_, err = tmp.Write(payload)
+	}
 	if closeErr := tmp.Close(); err == nil && closeErr != nil {
 		err = closeErr
 	}
 	if err != nil {
 		return fmt.Errorf("extract file %q: %w", entry.Path, err)
-	}
-	if uint64(written) != entry.UncompressedSize {
-		return fmt.Errorf("extract file %q: size mismatch", entry.Path)
-	}
-	if sum != entry.DataCRC32 {
-		return fmt.Errorf("extract file %q: crc32 mismatch", entry.Path)
 	}
 	if err := os.Rename(tmpPath, target); err != nil {
 		return fmt.Errorf("replace extracted file %q: %w", target, err)

@@ -23,6 +23,10 @@ type sourceEntry struct {
 }
 
 func Create(archivePath string, sources []string) error {
+	return createArchive(archivePath, sources, format.CompressionStore)
+}
+
+func createArchive(archivePath string, sources []string, method format.CompressionMethod) error {
 	if archivePath == "" {
 		return fmt.Errorf("create archive: missing archive path")
 	}
@@ -50,7 +54,7 @@ func Create(archivePath string, sources []string) error {
 	directory := make([]format.DirectoryEntry, 0, len(entries))
 
 	for _, entry := range entries {
-		dirEntry, nextOffset, err := writeEntry(out, entry, offset)
+		dirEntry, nextOffset, err := writeEntryWithCompression(out, entry, offset, method)
 		if err != nil {
 			_ = os.Remove(tmpPath)
 			return err
@@ -91,10 +95,14 @@ func Create(archivePath string, sources []string) error {
 }
 
 func writeEntry(out io.Writer, entry sourceEntry, offset uint64) (format.DirectoryEntry, uint64, error) {
+	return writeEntryWithCompression(out, entry, offset, format.CompressionStore)
+}
+
+func writeEntryWithCompression(out io.Writer, entry sourceEntry, offset uint64, method format.CompressionMethod) (format.DirectoryEntry, uint64, error) {
 	pathLen := uint64(len(entry.archivePath))
 	header := format.EntryHeader{
 		EntryType:           entry.entryType,
-		CompressionMethod:   format.CompressionStore,
+		CompressionMethod:   method,
 		PathLength:          uint32(pathLen),
 		ExtraMetadataLength: 0,
 		UncompressedSize:    entry.size,
@@ -102,10 +110,22 @@ func writeEntry(out io.Writer, entry sourceEntry, offset uint64) (format.Directo
 		ModificationTime:    entry.modTime,
 		DataCRC32:           entry.crc32,
 	}
+	var payload []byte
 	if entry.entryType == format.EntryTypeDirectory {
+		header.CompressionMethod = format.CompressionStore
 		header.UncompressedSize = 0
 		header.CompressedSize = 0
 		header.DataCRC32 = 0
+	} else {
+		data, err := os.ReadFile(entry.sourcePath)
+		if err != nil {
+			return format.DirectoryEntry{}, offset, fmt.Errorf("read file %q: %w", entry.archivePath, err)
+		}
+		payload, err = encodePayload(method, data)
+		if err != nil {
+			return format.DirectoryEntry{}, offset, err
+		}
+		header.CompressedSize = uint64(len(payload))
 	}
 	if err := format.EncodeEntry(out, format.Entry{Header: header, Path: entry.archivePath}); err != nil {
 		return format.DirectoryEntry{}, offset, fmt.Errorf("write entry %q: %w", entry.archivePath, err)
@@ -114,15 +134,15 @@ func writeEntry(out io.Writer, entry sourceEntry, offset uint64) (format.Directo
 	dataOffset := offset + uint64(format.EntryHeaderSize) + pathLen
 	nextOffset := dataOffset
 	if entry.entryType == format.EntryTypeFile {
-		if err := copyFile(out, entry.sourcePath); err != nil {
+		if _, err := out.Write(payload); err != nil {
 			return format.DirectoryEntry{}, offset, fmt.Errorf("write data %q: %w", entry.archivePath, err)
 		}
-		nextOffset += entry.size
+		nextOffset += uint64(len(payload))
 	}
 
 	return format.DirectoryEntry{
 		EntryType:         entry.entryType,
-		CompressionMethod: format.CompressionStore,
+		CompressionMethod: header.CompressionMethod,
 		FileRecordOffset:  offset,
 		DataOffset:        dataOffset,
 		UncompressedSize:  header.UncompressedSize,
